@@ -1,0 +1,20 @@
+#ds-overlay {
+  position: fixed;
+  z-index: 2147483647;
+  pointer-events: none;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.5;
+  font-family: 'YouTube Noto', Roboto, Arial, Helvetica, sans-serif;
+  color: #fff;
+  text-shadow:
+    1px  1px 2px #000,
+   -1px -1px 2px #000,
+    1px -1px 2px #000,
+   -1px  1px 2px #000;
+  background: rgba(8, 8, 8, 0.75);
+  padding: 4px 12px;
+  border-radius: 4px;
+  min-height: 1.5em;
+  box-sizing: border-box;
+}

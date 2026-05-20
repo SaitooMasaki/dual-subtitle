@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DualSubtitle Icon Generator</title>
+</head>
+<body>
+  <p>アイコンを自動生成してダウンロードします。少し待ってください。</p>
+  <canvas id="c"></canvas>
+  <script>
+    function draw(size) {
+      const canvas = document.getElementById('c');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      const r = size / 2;
+
+      // 背景円（ダークネイビー）
+      ctx.fillStyle = '#1a1a2e';
+      ctx.beginPath();
+      ctx.arc(r, r, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 字幕バー1（英語・白）
+      const barH = size * 0.12;
+      const barW = size * 0.65;
+      const gap  = size * 0.07;
+      const totalH = barH * 2 + gap;
+      const startY = r - totalH / 2;
+
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.beginPath();
+      ctx.roundRect(r - barW / 2, startY, barW, barH, barH * 0.3);
+      ctx.fill();
+
+      // 字幕バー2（日本語・アクセントカラー）
+      ctx.fillStyle = '#e63946';
+      ctx.beginPath();
+      ctx.roundRect(r - barW / 2, startY + barH + gap, barW * 0.8, barH, barH * 0.3);
+      ctx.fill();
+
+      return canvas.toDataURL('image/png');
+    }
+
+    function download(dataUrl, filename) {
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    // roundRectが使えない古いブラウザへのpolyfill
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+        this.beginPath();
+        this.moveTo(x + r, y);
+        this.lineTo(x + w - r, y);
+        this.quadraticCurveTo(x + w, y, x + w, y + r);
+        this.lineTo(x + w, y + h - r);
+        this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        this.lineTo(x + r, y + h);
+        this.quadraticCurveTo(x, y + h, x, y + h - r);
+        this.lineTo(x, y + r);
+        this.quadraticCurveTo(x, y, x + r, y);
+        this.closePath();
+      };
+    }
+
+    setTimeout(() => {
+      [16, 48, 128].forEach(size => {
+        download(draw(size), `icon${size}.png`);
+      });
+      document.querySelector('p').textContent =
+        '✅ icon16.png / icon48.png / icon128.png をダウンロードしました。iconsフォルダに移動してください。';
+    }, 300);
+  </script>
+</body>
+</html>
