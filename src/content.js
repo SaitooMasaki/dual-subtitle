@@ -75,9 +75,11 @@
 
   // ---- 翻訳 ----
 
+  let targetLang = 'ja'; // デフォルト：日本語
+
   function translate(text) {
     return new Promise(resolve => {
-      chrome.runtime.sendMessage({ type: 'TRANSLATE', text }, response => {
+      chrome.runtime.sendMessage({ type: 'TRANSLATE', text, targetLang }, response => {
         resolve(response?.translation || '');
       });
     });
@@ -86,12 +88,19 @@
   function showTranslation(translation) {
     const el = getOverlay();
     el.textContent = translation;
+    el.style.display = 'block';
     updatePosition();
+  }
+
+  function hideOverlay() {
+    const el = getOverlay();
+    el.textContent = '';
+    el.style.display = 'none';
   }
 
   function onCaptionText(text) {
     if (!enabled || !text.trim()) {
-      getOverlay().textContent = '';
+      hideOverlay();
       return;
     }
     if (text === lastText) return;
@@ -143,7 +152,7 @@
     }
     lastText = '';
     lastCaptionRect = null;
-    getOverlay().textContent = '';
+    hideOverlay();
 
     const retry = setInterval(() => {
       if (document.querySelector(SEL_CAPTION_WINDOW)) {
@@ -180,14 +189,21 @@
   chrome.runtime.onMessage.addListener(msg => {
     if (msg.type === 'SET_ENABLED') {
       enabled = msg.enabled;
-      if (!enabled) getOverlay().textContent = '';
+      if (!enabled) hideOverlay();
+    }
+    if (msg.type === 'SET_TARGET_LANG') {
+      targetLang = msg.targetLang || 'ja';
+      // 言語が変わったらキャッシュをクリアして再翻訳
+      translationCache.clear();
+      lastText = '';
     }
   });
 
   // ---- 初期化 ----
 
-  chrome.storage.sync.get(['enabled'], result => {
-    enabled = result.enabled !== false; // デフォルトON
+  chrome.storage.sync.get(['enabled', 'targetLang'], result => {
+    enabled    = result.enabled !== false;     // デフォルトON
+    targetLang = result.targetLang || 'ja';   // デフォルト日本語
     setup();
     startPositionLoop();
   });

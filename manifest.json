@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "DualSubtitle",
-  "version": "0.1.0",
-  "description": "YouTubeで英語字幕の下に日本語訳をリアルタイム表示",
+  "version": "0.2.0",
+  "description": "YouTubeの字幕をリアルタイム翻訳して表示。Pro版で翻訳先言語を自由に選択できます。",
   "permissions": ["storage", "tabs"],
   "host_permissions": [
     "https://www.youtube.com/*",
-    "https://translate.googleapis.com/*"
+    "https://translate.googleapis.com/*",
+    "https://api.lemonsqueezy.com/*"
   ],
   "background": {
     "service_worker": "src/background.js"
