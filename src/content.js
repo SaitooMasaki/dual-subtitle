@@ -137,14 +137,14 @@
       return;
     }
 
-    // キャッシュミス → 100ms待ってfetch
+    // キャッシュミス → 50ms待ってfetch（連続更新の途中で無駄に呼ばない）
     clearTimeout(translateTimer);
     translateTimer = setTimeout(async () => {
       const translation = await translate(text);
       if (!translation) return;
       setCache(text, translation);
       if (lastText === text) showTranslation(translation);
-    }, 100);
+    }, 50);
   }
 
   // ---- YouTube字幕の監視 ----
@@ -152,6 +152,12 @@
   function watchCaptions() {
     const container = document.querySelector(SEL_CAPTION_WINDOW);
     if (!container || captionObserver) return;
+
+    // 字幕コンテナ検出時点でTCP接続を事前確立（最初の翻訳ラグを削減）
+    fetch(
+      'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=' +
+      encodeURIComponent(targetLang) + '&dt=t&q=hi'
+    ).catch(() => {});
 
     captionObserver = new MutationObserver(() => {
       const segments = container.querySelectorAll(SEL_CAPTION_SEGMENT);
