@@ -13,7 +13,7 @@
   ];
 
   const DEBOUNCE_ADDITIVE   = 30;  // 増加型（単語追加中）: 30ms待機
-  const DEBOUNCE_REPLACEMENT = 0;  // 切替型（新しい文）  : 即座に開始
+  const DEBOUNCE_REPLACEMENT = 10; // 切替型（新しい文）  : 10ms（0msはMutationObserverの多重発火で消える）
 
   let overlay = null;
   let enabled = true;
