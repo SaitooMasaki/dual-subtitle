@@ -4,6 +4,14 @@
   const SEL_CAPTION_WINDOW = '.ytp-caption-window-container';
   const SEL_CAPTION_SEGMENT = '.ytp-caption-segment';
 
+  // YouTubeのUI文字列パターン（字幕ではなくYouTube自身のメッセージ）
+  const YOUTUBE_UI_PATTERNS = [
+    /をクリックして設定/,
+    /click to enable/i,
+    /turn on (captions|subtitles)/i,
+    /subtitles\/cc/i,
+  ];
+
   let overlay = null;
   let enabled = true;
   let lastText = '';
@@ -43,14 +51,11 @@
     return overlay;
   }
 
-  // 字幕テキスト要素の実際の座標を使って位置を決める
   function updatePosition() {
     const el = getOverlay();
 
-    // 現在表示中の字幕セグメントを探す
     const segments = document.querySelectorAll(SEL_CAPTION_SEGMENT);
     if (segments.length > 0) {
-      // 最も下にある行のbottomを基準にする
       let maxBottom = 0;
       let leftMost = Infinity;
       let rightMost = 0;
@@ -76,16 +81,24 @@
     el.style.width = Math.max(width, 200) + 'px';
   }
 
-  // ---- 翻訳 ----
+  // ---- 翻訳（content scriptから直接fetch — SW冷間起動問題を根本解決） ----
 
-  let targetLang = 'ja'; // デフォルト：日本語
+  let targetLang = 'ja';
 
-  function translate(text) {
-    return new Promise(resolve => {
-      chrome.runtime.sendMessage({ type: 'TRANSLATE', text, targetLang }, response => {
-        resolve(response?.translation || '');
-      });
-    });
+  async function translate(text) {
+    try {
+      const url =
+        'https://translate.googleapis.com/translate_a/single' +
+        '?client=gtx&sl=auto&tl=' + encodeURIComponent(targetLang) +
+        '&dt=t&q=' + encodeURIComponent(text);
+      const r = await fetch(url);
+      const data = await r.json();
+      const parts = data[0];
+      if (!Array.isArray(parts)) return '';
+      return parts.map(p => p[0] || '').join('');
+    } catch {
+      return '';
+    }
   }
 
   function showTranslation(translation) {
@@ -106,10 +119,17 @@
       hideOverlay();
       return;
     }
+
+    // YouTubeのUI文字列（字幕設定を促すメッセージ等）は無視
+    if (YOUTUBE_UI_PATTERNS.some(p => p.test(text))) {
+      hideOverlay();
+      return;
+    }
+
     if (text === lastText) return;
     lastText = text;
 
-    // キャッシュヒット → 即表示（ラグゼロ）
+    // キャッシュヒット → 即表示
     const cached = getCached(text);
     if (cached !== null) {
       clearTimeout(translateTimer);
@@ -117,24 +137,13 @@
       return;
     }
 
-    // キャッシュミス → 100ms待ってAPIへ（連続更新の途中で無駄に呼ばない）
+    // キャッシュミス → 100ms待ってfetch
     clearTimeout(translateTimer);
     translateTimer = setTimeout(async () => {
       const translation = await translate(text);
-      if (translation) {
-        setCache(text, translation);
-        if (lastText === text) showTranslation(translation);
-        return;
-      }
-      // Service Worker 起動直後は空が返ることがある → 500ms後にリトライ
-      setTimeout(async () => {
-        if (lastText !== text) return;
-        const retry = await translate(text);
-        if (retry) {
-          setCache(text, retry);
-          if (lastText === text) showTranslation(retry);
-        }
-      }, 500);
+      if (!translation) return;
+      setCache(text, translation);
+      if (lastText === text) showTranslation(translation);
     }, 100);
   }
 
@@ -157,7 +166,6 @@
     });
   }
 
-  // 字幕コンテナが現れるまでリトライ
   function setup() {
     if (captionObserver) {
       captionObserver.disconnect();
@@ -174,11 +182,9 @@
       }
     }, 500);
 
-    // 30秒でタイムアウト
     setTimeout(() => clearInterval(retry), 30000);
   }
 
-  // フルスクリーン・リサイズ対応
   function startPositionLoop() {
     clearInterval(positionTimer);
     positionTimer = setInterval(updatePosition, 500);
@@ -190,7 +196,6 @@
   new MutationObserver(() => {
     if (location.href !== currentUrl) {
       currentUrl = location.href;
-      // 動画ページへの遷移のみsetup実行
       if (location.pathname === '/watch') {
         setTimeout(setup, 1500);
       }
@@ -206,7 +211,6 @@
     }
     if (msg.type === 'SET_TARGET_LANG') {
       targetLang = msg.targetLang || 'ja';
-      // 言語が変わったらキャッシュをクリアして再翻訳
       translationCache.clear();
       lastText = '';
     }
@@ -214,12 +218,9 @@
 
   // ---- 初期化 ----
 
-  // Service Worker を事前に起こす（冒頭の翻訳抜けを防ぐ）
-  chrome.runtime.sendMessage({ type: 'PING' }, () => void chrome.runtime.lastError);
-
   chrome.storage.sync.get(['enabled', 'targetLang'], result => {
-    enabled    = result.enabled !== false;     // デフォルトON
-    targetLang = result.targetLang || 'ja';   // デフォルト日本語
+    enabled    = result.enabled !== false;
+    targetLang = result.targetLang || 'ja';
     setup();
     startPositionLoop();
   });
