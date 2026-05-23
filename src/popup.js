@@ -1,6 +1,6 @@
 // DualSubtitle popup.js — Pro 対応版
 
-const CHECKOUT_URL = 'https://saitoomasaki.lemonsqueezy.com/checkout/buy/DUAL_SUBTITLE_PRODUCT_ID'; // TODO: 更新
+const CHECKOUT_URL = 'https://saitoomasaki.lemonsqueezy.com/checkout/buy/68d57086-5274-41cf-81de-547082ba6d00';
 
 // ===== 初期化 =====
 
