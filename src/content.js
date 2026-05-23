@@ -52,6 +52,12 @@
   }
 
   function updatePosition() {
+    // 動画ページ以外では必ず非表示（SPA遷移後の残留を確実に消す）
+    if (location.pathname !== '/watch') {
+      hideOverlay();
+      return;
+    }
+
     const el = getOverlay();
 
     const segments = document.querySelectorAll(SEL_CAPTION_SEGMENT);
@@ -207,8 +213,9 @@
         // 動画ページへ移動 → 字幕監視を再セットアップ
         setTimeout(setup, 1500);
       } else {
-        // 動画ページから離れた（ホーム等）→ オーバーレイを消してObserverを止める
+        // 動画ページから離れた（ホーム等）→ クリーンアップ
         clearTimeout(translateTimer);
+        lastText = ''; // 進行中のfetchが完了しても表示されないようにする
         hideOverlay();
         if (captionObserver) {
           captionObserver.disconnect();
