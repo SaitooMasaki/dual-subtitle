@@ -12,9 +12,6 @@
     /subtitles\/cc/i,
   ];
 
-  const DEBOUNCE_ADDITIVE   = 30;  // 増加型（単語追加中）: 30ms待機
-  const DEBOUNCE_REPLACEMENT = 10; // 切替型（新しい文）  : 10ms（0msはMutationObserverの多重発火で消える）
-
   let overlay = null;
   let enabled = true;
   let lastText = '';
@@ -22,7 +19,6 @@
   let positionTimer = null;
   let captionObserver = null;
   let lastCaptionRect = null;
-  let currentAbortController = null; // 進行中のfetchをキャンセルするため
 
   // 翻訳キャッシュ（同じ字幕テキストは即返す）
   const translationCache = new Map();
@@ -89,19 +85,19 @@
 
   let targetLang = 'ja';
 
-  async function translate(text, signal) {
+  async function translate(text) {
     try {
       const url =
         'https://translate.googleapis.com/translate_a/single' +
         '?client=gtx&sl=auto&tl=' + encodeURIComponent(targetLang) +
         '&dt=t&q=' + encodeURIComponent(text);
-      const r = await fetch(url, { signal });
+      const r = await fetch(url);
       const data = await r.json();
       const parts = data[0];
       if (!Array.isArray(parts)) return '';
       return parts.map(p => p[0] || '').join('');
     } catch {
-      return ''; // AbortError含む全エラーを無視
+      return '';
     }
   }
 
@@ -118,24 +114,6 @@
     el.style.display = 'none';
   }
 
-  function scheduleFetch(text, delay) {
-    clearTimeout(translateTimer);
-
-    // 進行中のfetchをキャンセル
-    if (currentAbortController) {
-      currentAbortController.abort();
-    }
-    currentAbortController = new AbortController();
-    const signal = currentAbortController.signal;
-
-    translateTimer = setTimeout(async () => {
-      const translation = await translate(text, signal);
-      if (!translation) return;
-      setCache(text, translation);
-      if (lastText === text) showTranslation(translation);
-    }, delay);
-  }
-
   function onCaptionText(text) {
     if (!enabled || !text.trim()) {
       hideOverlay();
@@ -149,23 +127,25 @@
     }
 
     if (text === lastText) return;
-
-    // 増加型 or 切替型を判定
-    const isAdditive = text.startsWith(lastText) && lastText.length > 0;
     lastText = text;
 
     // キャッシュヒット → 即表示
     const cached = getCached(text);
     if (cached !== null) {
       clearTimeout(translateTimer);
-      if (currentAbortController) currentAbortController.abort();
       showTranslation(cached);
       return;
     }
 
-    // 増加型: 30ms debounce（単語が増えている途中は待つ）
-    // 切替型: 即座にfetch（新しい文の出だしを素早く翻訳）
-    scheduleFetch(text, isAdditive ? DEBOUNCE_ADDITIVE : DEBOUNCE_REPLACEMENT);
+    // 25ms debounce：連続更新をまとめてから1回だけfetch
+    // 古い結果は lastText === text ガードで自動破棄されるためAbortController不要
+    clearTimeout(translateTimer);
+    translateTimer = setTimeout(async () => {
+      const translation = await translate(text);
+      if (!translation) return;
+      setCache(text, translation);
+      if (lastText === text) showTranslation(translation);
+    }, 25);
   }
 
   // ---- YouTube字幕の監視 ----
@@ -200,10 +180,6 @@
     }
     lastText = '';
     lastCaptionRect = null;
-    if (currentAbortController) {
-      currentAbortController.abort();
-      currentAbortController = null;
-    }
     hideOverlay();
 
     const retry = setInterval(() => {
