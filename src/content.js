@@ -91,6 +91,7 @@
 
   let targetLang = 'ja';
 
+  // { translation, detectedLang } を返す
   async function translate(text) {
     try {
       const url =
@@ -100,10 +101,12 @@
       const r = await fetch(url);
       const data = await r.json();
       const parts = data[0];
-      if (!Array.isArray(parts)) return '';
-      return parts.map(p => p[0] || '').join('');
+      if (!Array.isArray(parts)) return { translation: '', detectedLang: '' };
+      const translation = parts.map(p => p[0] || '').join('');
+      const detectedLang = data[2] || '';
+      return { translation, detectedLang };
     } catch {
-      return '';
+      return { translation: '', detectedLang: '' };
     }
   }
 
@@ -144,11 +147,15 @@
     }
 
     // 25ms debounce：連続更新をまとめてから1回だけfetch
-    // 古い結果は lastText === text ガードで自動破棄されるためAbortController不要
     clearTimeout(translateTimer);
     translateTimer = setTimeout(async () => {
-      const translation = await translate(text);
+      const { translation, detectedLang } = await translate(text);
       if (!translation) return;
+      // ソース言語 = ターゲット言語のとき（日本語動画×日本語翻訳など）は非表示
+      if (detectedLang && detectedLang === targetLang) {
+        hideOverlay();
+        return;
+      }
       setCache(text, translation);
       if (lastText === text) showTranslation(translation);
     }, 25);
