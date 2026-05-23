@@ -7,6 +7,11 @@ const CACHE_HOURS = 24;
 // ===== メッセージハンドラ =====
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'PING') {
+    sendResponse({ ok: true });
+    return false;
+  }
+
   if (msg.type === 'TRANSLATE') {
     handleTranslate(msg.text, msg.targetLang || 'ja')
       .then(translation => sendResponse({ translation }))

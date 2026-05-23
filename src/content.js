@@ -121,10 +121,20 @@
     clearTimeout(translateTimer);
     translateTimer = setTimeout(async () => {
       const translation = await translate(text);
-      if (!translation) return;
-      setCache(text, translation);
-      // テキストが変わっていなければ表示（古い結果を上書きしない）
-      if (lastText === text) showTranslation(translation);
+      if (translation) {
+        setCache(text, translation);
+        if (lastText === text) showTranslation(translation);
+        return;
+      }
+      // Service Worker 起動直後は空が返ることがある → 500ms後にリトライ
+      setTimeout(async () => {
+        if (lastText !== text) return;
+        const retry = await translate(text);
+        if (retry) {
+          setCache(text, retry);
+          if (lastText === text) showTranslation(retry);
+        }
+      }, 500);
     }, 100);
   }
 
@@ -203,6 +213,9 @@
   });
 
   // ---- 初期化 ----
+
+  // Service Worker を事前に起こす（冒頭の翻訳抜けを防ぐ）
+  chrome.runtime.sendMessage({ type: 'PING' }, () => void chrome.runtime.lastError);
 
   chrome.storage.sync.get(['enabled', 'targetLang'], result => {
     enabled    = result.enabled !== false;     // デフォルトON
