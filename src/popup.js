@@ -1,36 +1,36 @@
-// DualSubtitle popup.js — Pro 対応版
+// DualSubtitle popup.js
 
 const CHECKOUT_URL = 'https://saitoomasaki.lemonsqueezy.com/checkout/buy/68d57086-5274-41cf-81de-547082ba6d00';
 
-// ===== 初期化 =====
+// ===== Init =====
 
 document.addEventListener('DOMContentLoaded', async () => {
   const data = await storageGet(['enabled', 'targetLang', 'licenseKey', 'licenseStatus']);
 
   const isPro = data.licenseStatus === 'pro';
 
-  // トグル
+  // Toggle
   document.getElementById('toggle').checked = data.enabled !== false;
 
-  // 言語セレクター
+  // Language selector
   const langSelect = document.getElementById('lang-select');
   langSelect.value = data.targetLang || 'ja';
   langSelect.disabled = !isPro;
   document.getElementById('lang-pro-note').classList.toggle('hidden', isPro);
 
-  // プラン UI
+  // Plan UI
   updatePlanUI(isPro, data.licenseKey || '');
 
-  // アップグレードリンク
+  // Upgrade link
   document.getElementById('upgrade-link').href = CHECKOUT_URL;
 
   bindEvents(isPro);
 });
 
-// ===== イベント =====
+// ===== Events =====
 
 function bindEvents(isPro) {
-  // ON/OFF トグル
+  // ON/OFF toggle
   const toggle = document.getElementById('toggle');
   toggle.addEventListener('change', () => {
     const enabled = toggle.checked;
@@ -44,10 +44,9 @@ function bindEvents(isPro) {
     });
   });
 
-  // 言語選択（Pro のみ）
+  // Language selection (Pro only)
   document.getElementById('lang-select').addEventListener('change', e => {
     const val = e.target.value;
-    // Free ユーザーが日本語以外を選んでいたらリセット
     storageGet(['licenseStatus']).then(data => {
       if (data.licenseStatus !== 'pro' && val !== 'ja') {
         e.target.value = 'ja';
@@ -58,41 +57,40 @@ function bindEvents(isPro) {
     });
   });
 
-  // ライセンス認証
+  // License activation
   document.getElementById('btn-activate').addEventListener('click', activateLicense);
 
-  // ライセンス解除
+  // License removal
   document.getElementById('btn-deactivate').addEventListener('click', deactivateLicense);
 }
 
-// ===== ライセンス認証 =====
+// ===== License activation =====
 
 async function activateLicense() {
   const key = document.getElementById('license-input').value.trim();
   if (!key) {
-    showStatus('ライセンスキーを入力してください', 'err');
+    showStatus('Please enter your license key.', 'err');
     return;
   }
 
   const btn = document.getElementById('btn-activate');
-  btn.textContent = '確認中…';
+  btn.textContent = 'Checking…';
   btn.disabled = true;
 
   const { status } = await new Promise(resolve =>
     chrome.runtime.sendMessage({ type: 'VALIDATE_LICENSE', licenseKey: key }, resolve)
   );
 
-  btn.textContent = '認証';
+  btn.textContent = 'Activate';
   btn.disabled = false;
 
   if (status === 'pro') {
     updatePlanUI(true, key);
-    showStatus('✅ Pro が有効になりました', 'ok');
-    // 言語セレクターを解放
+    showStatus('✅ Pro activated! All languages unlocked.', 'ok');
     document.getElementById('lang-select').disabled = false;
     document.getElementById('lang-pro-note').classList.add('hidden');
   } else {
-    showStatus('❌ 無効なライセンスキーです', 'err');
+    showStatus('❌ Invalid license key. Please try again.', 'err');
   }
 }
 
@@ -103,16 +101,15 @@ async function deactivateLicense() {
     licenseCache:  null,
     targetLang:    'ja',
   });
-  // 言語を日本語に戻す
   document.getElementById('lang-select').value = 'ja';
   document.getElementById('lang-select').disabled = true;
   document.getElementById('lang-pro-note').classList.remove('hidden');
   notifyTargetLangChange('ja');
   updatePlanUI(false, '');
-  showStatus('Pro を解除しました', 'ok');
+  showStatus('Pro license removed.', 'ok');
 }
 
-// ===== UI 更新 =====
+// ===== UI update =====
 
 function updatePlanUI(isPro, licenseKey) {
   const badge      = document.getElementById('plan-badge');
@@ -143,7 +140,7 @@ function showStatus(msg, type) {
   setTimeout(() => { el.textContent = ''; }, 4000);
 }
 
-// アクティブなYouTubeタブに言語変更を通知
+// Notify active YouTube tab of language change
 function notifyTargetLangChange(targetLang) {
   chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
     if (tabs[0]?.url?.includes('youtube.com/watch')) {
@@ -154,7 +151,7 @@ function notifyTargetLangChange(targetLang) {
   });
 }
 
-// ===== ユーティリティ =====
+// ===== Utility =====
 
 function storageGet(keys) {
   return new Promise(resolve => chrome.storage.sync.get(keys, resolve));
