@@ -62,7 +62,10 @@
         if (r.right > rightMost) rightMost = r.right;
       });
 
-      lastCaptionRect = { bottom: maxBottom, left: leftMost, right: rightMost };
+      // 字幕が画面下半分にある場合のみ位置を更新（冒頭の誤配置を防ぐ）
+      if (maxBottom > window.innerHeight * 0.5) {
+        lastCaptionRect = { bottom: maxBottom, left: leftMost, right: rightMost };
+      }
     }
 
     if (!lastCaptionRect) return;
