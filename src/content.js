@@ -204,7 +204,16 @@
     if (location.href !== currentUrl) {
       currentUrl = location.href;
       if (location.pathname === '/watch') {
+        // 動画ページへ移動 → 字幕監視を再セットアップ
         setTimeout(setup, 1500);
+      } else {
+        // 動画ページから離れた（ホーム等）→ オーバーレイを消してObserverを止める
+        clearTimeout(translateTimer);
+        hideOverlay();
+        if (captionObserver) {
+          captionObserver.disconnect();
+          captionObserver = null;
+        }
       }
     }
   }).observe(document.documentElement, { subtree: true, childList: true });
@@ -214,7 +223,10 @@
   chrome.runtime.onMessage.addListener(msg => {
     if (msg.type === 'SET_ENABLED') {
       enabled = msg.enabled;
-      if (!enabled) hideOverlay();
+      if (!enabled) {
+        clearTimeout(translateTimer); // 進行中のタイマーを止めて再表示を防ぐ
+        hideOverlay();
+      }
     }
     if (msg.type === 'SET_TARGET_LANG') {
       targetLang = msg.targetLang || 'ja';
